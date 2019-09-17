@@ -27,7 +27,7 @@ class TypeclassesSpec extends FlatSpec with MustMatchers {
   }
 
   it should "combine a List[String]" taggedAs tag.combine2 in {
-    //TODO: Exercise 2 - Implement this test
+    assert(combine2generified(List("foo", "bar", "baz"), concat) == "foobarbaz")
   }
 
   behavior of "combine3"
