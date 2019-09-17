@@ -1,5 +1,6 @@
 package part2
 
+import part1.typeclasses.Monoid
 import part2.data._
 import part2.functors.{CanFailFunctor, Functor, MaybeFunctor}
 
@@ -26,14 +27,22 @@ object applicatives {
 
   // Exercise 1 - Implement an applicative instance for Maybe
   class MaybeApplicative extends MaybeFunctor with Applicative[Maybe] {
-    override def pure[A](a: A): Maybe[A] = ???
-    override def zip[A, B](fa: Maybe[A], fb: Maybe[B]): Maybe[(A, B)] = ???
+    override def pure[A](a: A): Maybe[A] = Defined(a)
+    override def zip[A, B](fa: Maybe[A], fb: Maybe[B]): Maybe[(A, B)] = (fa, fb) match {
+      case (Defined(a), Defined(b)) => Defined((a, b))
+      case _                        => Undefined
+    }
   }
 
   // Exercise 2 - Implement an applicative instance for CanFail
   class CanFailApplicative[E] extends CanFailFunctor[E] with Applicative[CanFail[E, ?]] {
-    override def pure[A](a: A): CanFail[E, A] = ???
-    override def zip[A, B](fa: CanFail[E, A], fb: CanFail[E, B]): CanFail[E, (A, B)] = ???
+    override def pure[A](a: A): CanFail[E, A] = Success(a)
+    override def zip[A, B](fa: CanFail[E, A], fb: CanFail[E, B]): CanFail[E, (A, B)] = (fa, fb) match {
+      case (Success(a), Success(b)) => Success((a, b))
+      case (Failure(a), Success(_)) => Failure(a)
+      case (Success(_), Failure(b)) => Failure(b)
+      case (Failure(a), Failure(_)) => Failure(a)
+    }
   }
 
   object Applicative {
@@ -42,20 +51,22 @@ object applicatives {
     def apply[F[_]](implicit ev: Applicative[F]): Applicative[F] = ev
 
     // Defining these values as implicits makes them typeclass instances
-    implicit val maybeApplicative: Applicative[Maybe] = new MaybeApplicative
+    implicit val maybeApplicative: Applicative[Maybe]              = new MaybeApplicative
     implicit def canFailApplicative[E]: Applicative[CanFail[E, ?]] = new CanFailApplicative[E]
   }
 
   import functors._
 
   // Exercise 3 - Implement sequence
-  def sequence[F[_]: Applicative, A](fas: List[F[A]]): F[List[A]] = ???
-
+  def sequence[F[_]: Applicative, A: Monoid](fas: List[F[A]]): F[List[A]] =
+    fas.foldLeft(Applicative[F].pure(List.empty[A])) {
+      case (acc, el) =>
+        acc.zip(el).map { case (a, b) => a :+ b }
+    }
   // Exercise 4 - Convert a list of strings to Int using the toInt helper
   // Tip: Use map and sequence
   def asInts(xs: List[String]): CanFail[Throwable, List[Int]] = {
     def toInt(a: String): CanFail[Throwable, Int] = CanFail(a.toInt)
-
-    ???
+    sequence(xs.map(toInt))
   }
 }
